@@ -25,6 +25,7 @@ async function init() {
     const texture = await loadTextureAsync('resources/20230521_164044.jpg');
     const imageWidth = texture.image.width;
     const imageHeight = texture.image.height;
+    const depth = await loadTextureAsync('resources/depth.png');
     const grid = await loadTextureAsync('resources/grid.jpeg');
     const gridWidth = grid.image.width;
     const gridHeight = grid.image.height;
@@ -47,8 +48,9 @@ async function init() {
     const uniforms = {
         uTexture: { value: texture },
         uTexAsp: { value: imageAspect },
+        uDepth: { value: depth },
         uGrid: { value: grid },
-        uGridScale: { value: 0.1 },
+        uGridScale: { value: 1.0 },
         uGridAsp: { value: 1.0 },
         u_mouse: { value: new THREE.Vector2(0, 0) },
     };
@@ -74,19 +76,22 @@ async function init() {
         uniform sampler2D uTexture;
         uniform float uTexAsp;
         uniform sampler2D uGrid;
+        uniform sampler2D uDepth;
         uniform float uGridAsp;
         uniform float uGridScale;
         uniform vec2 u_mouse;
         varying vec2 vUv;
         void main() {
-            vec2 grid_uv = 10.0 * (vUv - (u_mouse));
             vec4 textureColor = texture2D(uTexture, vUv);
-            vec4 gridColor = texture2D(uGrid, grid_uv);
-            vec4 myColor = textureColor;
-            if(grid_uv.x >= 0.0 && grid_uv.y >=0.0 && grid_uv.x < 1.0 && grid_uv.y < 1.0){
-                myColor = gridColor;
+            vec4 depth = texture2D(uDepth, vUv);
+            depth.xy = vec2(0.5)/(depth.xy + vec2(0.0001)) + vec2(1.0);
+            vec2 xy_mouse = u_mouse * depth.xy;
+            vec2 xy_grid = uGridScale * vec2(uTexAsp, 1.0) * (vUv - u_mouse) * depth.xy + vec2(0.5, 0.5);
+            vec4 gridColor = texture2D(uGrid, xy_grid);
+            if(xy_grid.x >= 0.0 && xy_grid.y >=0.0 && xy_grid.x < 1.0 && xy_grid.y < 1.0){
+                textureColor = gridColor;
             }
-            gl_FragColor = myColor;
+            gl_FragColor = textureColor;
         }
     `;
 
